@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RAS Progress Tracker</title>
+<style>
+:root{--bg:#f3f6f3;--card:#fff;--tx:#14231a;--mu:#5d6b62;--ac:#1f6b3a;--bd:#dbe2dc;--l1:#1f8a4c;--l2:#2b6fd0;--l3:#c67f00;--l4:#b5473b;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1712;--card:#18221b;--tx:#e8f0ea;--mu:#9bab9f;--ac:#4fb06f;--bd:#2a382d;--l1:#3fc27a;--l2:#6aa3ff;--l3:#e6a73a;--l4:#e57a6e}}
+:root[data-theme="dark"]{--bg:#0f1712;--card:#18221b;--tx:#e8f0ea;--mu:#9bab9f;--ac:#4fb06f;--bd:#2a382d;--l1:#3fc27a;--l2:#6aa3ff;--l3:#e6a73a;--l4:#e57a6e}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+#app{max-width:640px;margin:0 auto;padding:14px}
+h1{font-size:1.4rem;margin:6px 0 2px}h2{font-size:1rem;margin:20px 0 8px;color:var(--ac);text-transform:uppercase;letter-spacing:.05em}
+.mu,small{color:var(--mu)}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:12px;margin:8px 0}
+.tap{cursor:pointer}
+.row{display:flex;gap:8px;align-items:center;justify-content:space-between}
+input,textarea{width:100%;font:inherit;padding:10px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--tx)}
+button{font:inherit;padding:10px 14px;border-radius:8px;border:1px solid var(--bd);background:var(--card);color:var(--tx);cursor:pointer}
+button.pri{background:var(--ac);color:#fff;border-color:var(--ac);font-weight:600}
+.lbl{display:block;margin:12px 0 4px;font-weight:600;font-size:.9rem}
+.b{display:inline-block;padding:2px 8px;border-radius:99px;font-size:.8rem;font-weight:700;color:#fff}
+.l1{background:var(--l1)}.l2{background:var(--l2)}.l3{background:var(--l3)}.l4{background:var(--l4)}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9;display:flex;align-items:flex-end;justify-content:center}
+.sh{background:var(--bg);width:100%;max-width:640px;max-height:92%;overflow:auto;border-radius:16px 16px 0 0;padding:16px;padding-bottom:calc(16px + env(safe-area-inset-bottom,0px))}
+.opt{display:flex;gap:10px;align-items:flex-start;padding:8px;border:1px solid var(--bd);border-radius:8px;margin:6px 0;background:var(--card)}
+.opt input{width:auto;margin-top:4px}
+.hist{display:flex;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid var(--bd);font-size:.9rem}
+.bar{display:flex;gap:3px;width:140px}
+.seg{flex:1;height:10px;border-radius:3px;background:var(--bd)}
+summary{cursor:pointer}
+</style></head><body><div id="app"></div>
+<script>
+var LV={1:'National / Elite Amateur',2:'State Representative',3:'Regional (RAS)',4:'Club'};
+var G=['Full swing & ball flight','Short game','Putting','Tactical'];
+var T=[
+['flight',0,'Standard ball flight',50,'Short iron, mid iron, long iron/hybrid, fairway wood and driver: 10 balls each. Targets: 11m at 110m, 14m at 140m, 17m at 170m, 20m at 200m (wood and driver). Score out of 50.'],
+['draw',0,'Draw',10,'Target 15m wide at 150m, player picks club. Hit 10 balls; count those that draw and finish in the target.'],
+['fade',0,'Fade',10,'Target 15m wide at 150m, player picks club. Hit 10 balls; count those that fade and finish in the target.'],
+['high',0,'Higher trajectory',10,'Target 15m at 150m. Establish standard trajectory first. Count balls hit higher than standard that finish in the target.'],
+['low',0,'Lower trajectory',10,'Target 15m at 150m. Establish standard trajectory first. Count balls hit lower than standard that finish in the target.'],
+['dist',0,'Distance control',10,'Target 15m at 150m. Use the club the player hits 150m. 5 balls 10m longer and 5 balls 10m shorter; count those inside the target.'],
+['chip',1,'Chip',10,'10 balls from the edge of the green to a hole 10-15m away. Target 1.0m radius.'],
+['chiprun',1,'Chip and run',10,'10 balls from the fringe to a hole 20-25m away. Target 1.5m radius.'],
+['pitch',1,'Pitch (sand wedge)',10,'10 pitch shots from a flat fairway lie, 30m from the hole. Target 2.5m radius.'],
+['lob',1,'Lob',10,'10 lob shots from a flat fairway lie, 20m from the hole. Target 2m radius.'],
+['bunk',1,'Bunker',10,'10 shots from a greenside bunker (reasonable lie), 10-20m from the hole. Target 2m radius.'],
+['wedge',1,'Distance wedges',20,'5 balls to each of 40, 50, 60 and 70m. Target diameter is 10% of the distance (4m at 40m). Score out of 20.'],
+['sputt',2,'Short putts',20,'10 putts from a 1m radius circle and 10 from a 2m radius circle. Count putts holed out of 20.'],
+['mputt',2,'Medium putts',20,'5 putts between 3m and 5m from each compass point (20 total). Count holed or finishing in a semi-circle behind the hole (0.5m radius).'],
+['lag',2,'Lag putts',20,'5 putts between 6m and 14m (6, 8, 10, 12, 14m) from each compass point. Count holed or finishing inside a 1m radius circle.'],
+['yard',3,'Yardage book & game plan',0,'Complete a yardage book for the home course and a game plan for a typical monthly medal round. Pick the level that best fits.',
+ {1:'Detailed book: hole drawings, measured target widths, Plan A and B, green/amber/red shots; confirmed in practice rounds.',2:'Detailed book with Plan A and B tee shots, "go for it" and centre-of-green shots.',3:'Beginning to use a yardage book; Plan A tee shots, learning Plan B and best place to miss.',4:'No yardage book or game plan; Plan A only; uses standard 150m markers.'}],
+['exec',3,'Executing a game plan',0,'Player completes a post-round self-reflection sheet and discusses areas of improvement with the coach.',
+ {1:'Sticks to the game plan in all competitive situations.',2:'Sticks to the game plan in low-pressure situations.',3:'Defers from the plan when not playing well or under peer pressure.',4:'Has no game plan.'}]
+];
+function lvl(s,m){var p=s/m*100;return p>80?1:p>=70?2:p>=40?3:4}
+var S;try{S=JSON.parse(localStorage.getItem('ras')||'')}catch(e){}
+if(!S||!S.players)S={players:[]};
+function save(){try{localStorage.setItem('ras',JSON.stringify(S))}catch(e){}}
+var pid=null,tid=null,delArm=false;
+function $(s){return document.querySelector(s)}
+function E(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function today(){return new Date(Date.now()-new Date().getTimezoneOffset()*6e4).toISOString().slice(0,10)}
+function P(){return S.players.filter(function(p){return p.id==pid})[0]}
+function TT(id){return T.filter(function(t){return t[0]==id})[0]}
+function recs(p,t){return p.r.filter(function(x){return x.t==t}).sort(function(a,b){return a.d<b.d?-1:a.d>b.d?1:a.i-b.i})}
+function lv(x,t){return t[3]?lvl(x.s,t[3]):x.l}
+function bd(l){return '<span class="b l'+l+'">L'+l+'</span>'}
+function fd(d){var a=d.split('-');return a[2]+'/'+a[1]+'/'+a[0]}
+
+function home(){
+ return '<h1>RAS Progress Tracker</h1><div class="mu">Technical and tactical testing</div>'+
+ '<div class="card"><div class="row"><input id="nm" placeholder="Add player name"><button class="pri" onclick="addP()">Add</button></div></div>'+
+ (S.players.map(function(p){return '<div class="card tap" onclick="openP(\''+p.id+'\')"><b>'+E(p.name)+'</b><div class="mu">'+p.r.length+' result'+(p.r.length==1?'':'s')+' logged</div></div>'}).join('')||'<p class="mu">No players yet. Add one above.</p>')+
+ '<details class="card"><summary><b>Backup / restore</b></summary><p class="mu">Your data lives on this device only. "Show backup" gives you text to copy and keep safe. To restore, paste it in the box and tap Restore.</p>'+
+ '<textarea id="bk" rows="5"></textarea><div class="row" style="margin-top:8px"><button onclick="showBk()">Show backup</button><button onclick="restore()">Restore</button></div><div id="bkm" class="mu"></div></details>';
+}
+function player(){
+ var p=P(),cnt={1:0,2:0,3:0,4:0},done=0;
+ T.forEach(function(t){var r=recs(p,t[0]);if(r.length){done++;cnt[lv(r[r.length-1],t)]++}});
+ var h='<button onclick="back()">&larr; Players</button><h1>'+E(p.name)+'</h1><div class="mu">'+done+' of '+T.length+' tests logged (latest result counted)</div><div class="chips">'+
+ [1,2,3,4].map(function(n){return bd(n)+' <span style="margin-right:8px">'+cnt[n]+'</span>'}).join('')+'</div>';
+ h+='<details open><summary><b>Snapshot</b></summary>'+[0,1,2,3].map(snap).join('')+'</details>';
+ G.forEach(function(g,gi){
+  h+='<h2>'+g+'</h2>';
+  T.filter(function(t){return t[1]==gi}).forEach(function(t){
+   var r=recs(p,t[0]),l=r[r.length-1];
+   h+='<div class="card tap" onclick="openT(\''+t[0]+'\')"><div class="row"><div><b>'+t[2]+'</b><br><small>'+(l?(t[3]?l.s+'/'+t[3]+' on '+fd(l.d):'Logged '+fd(l.d)):'Not tested yet')+'</small></div>'+(l?bd(lv(l,t)):'<span class="mu">&ndash;</span>')+'</div></div>';
+  });
+ });
+ return h+'<div style="margin:24px 0"><button onclick="dp()">'+(delArm?'Tap again to delete player':'Delete player')+'</button></div>';
+}
+var SL={flight:'Ball flight',draw:'Draw',fade:'Fade',high:'High',low:'Low',dist:'Distance',chip:'Chip',chiprun:'Chip & run',pitch:'Pitch',lob:'Lob',bunk:'Bunker',wedge:'Wedges',sputt:'Short',mputt:'Medium',lag:'Lag'};
+function cur(p,t){var r=recs(p,t[0]);return r.length?lv(r[r.length-1],t):0}
+function snap(gi){
+ var p=P(),ts=T.filter(function(t){return t[1]==gi}),n=ts.length,done=ts.filter(function(t){return cur(p,t)}).length;
+ var h='<div class="card"><div class="row"><b>'+G[gi]+'</b><small>'+done+' of '+n+' tested</small></div>';
+ if(n<3){
+  ts.forEach(function(t){var l=cur(p,t);h+='<div class="row" style="margin-top:10px"><span>'+t[2]+'</span><span class="bar">'+[1,2,3,4].map(function(k){return '<i class="seg"'+(l&&k<=5-l?' style="background:var(--l'+l+')"':'')+'></i>'}).join('')+'</span></div>'});
+  return h+'<small>Filled segments show the current level (4 segments = L1).</small></div>';
+ }
+ var cx=160,cy=128,R=80;
+ function pt(i,r){var a=(-90+360*i/n)*Math.PI/180;return[cx+r*Math.cos(a),cy+r*Math.sin(a)]}
+ var s='<svg viewBox="0 0 320 260" style="width:100%;max-width:420px;display:block;margin:6px auto">';
+ for(var k=1;k<=4;k++){
+  s+='<polygon points="'+ts.map(function(t,i){return pt(i,R*k/4).join(',')}).join(' ')+'" fill="none" stroke="var(--bd)"/>';
+  s+='<text x="'+(cx+3)+'" y="'+(cy-R*k/4+10)+'" font-size="8" fill="var(--mu)">L'+(5-k)+'</text>';
+ }
+ ts.forEach(function(t,i){
+  var e=pt(i,R),q=pt(i,R+14),c=Math.cos((-90+360*i/n)*Math.PI/180);
+  s+='<line x1="'+cx+'" y1="'+cy+'" x2="'+e[0]+'" y2="'+e[1]+'" stroke="var(--bd)"/><text x="'+q[0]+'" y="'+(q[1]+4)+'" font-size="11" fill="var(--tx)" text-anchor="'+(c>.3?'start':c<-.3?'end':'middle')+'">'+SL[t[0]]+'</text>';
+ });
+ s+='<polygon points="'+ts.map(function(t,i){var l=cur(p,t);return pt(i,l?R*(5-l)/4:0).join(',')}).join(' ')+'" fill="var(--ac)" fill-opacity=".25" stroke="var(--ac)" stroke-width="2"/>';
+ ts.forEach(function(t,i){var l=cur(p,t);if(l){var q=pt(i,R*(5-l)/4);s+='<circle cx="'+q[0]+'" cy="'+q[1]+'" r="4" style="fill:var(--l'+l+')"/>'}});
+ return h+s+'</svg><small>Outer ring = L1, centre = not tested yet. Uses each test\'s latest result.</small></div>';
+}
+function sheet(){
+ var p=P(),t=TT(tid),hs=recs(p,tid).reverse(),f;
+ var info=t[3]?'<div class="card"><small>Levels (% of '+t[3]+'): L1 over 80% &middot; L2 70-80% &middot; L3 40-60% &middot; L4 under 40%. Scores that fall between bands (60-70%, 30-40%) count at the lower level.</small></div>':'';
+ if(t[5]){f='<div class="lbl">Level achieved</div>'+[1,2,3,4].map(function(n){return '<label class="opt"><input type="radio" name="lv" value="'+n+'"><span>'+bd(n)+' <b>'+LV[n]+'</b><br><small>'+E(t[5][n])+'</small></span></label>'}).join('')}
+ else f='<label class="lbl">Score out of '+t[3]+'</label><input id="sc" type="number" inputmode="numeric" min="0" max="'+t[3]+'" oninput="pv('+t[3]+')"><div id="pv" class="mu" style="margin-top:4px"></div>';
+ f+='<label class="lbl">Date</label><input id="dt" type="date" value="'+today()+'"><label class="lbl">Note (club, conditions, etc.)</label><input id="nt">';
+ return '<div class="ov" onclick="if(event.target==this)closeT()"><div class="sh"><div class="row"><h1 style="margin:0">'+t[2]+'</h1><button onclick="closeT()">Close</button></div><p class="mu">'+E(t[4])+'</p>'+info+f+
+ '<div style="margin:14px 0"><button class="pri" style="width:100%" onclick="sv()">Save result</button></div><h2>History</h2>'+
+ (hs.map(function(x){var l=lv(x,t);return '<div class="hist"><div>'+fd(x.d)+' &nbsp; <b>'+(t[3]?x.s+'/'+t[3]+' ('+Math.round(x.s/t[3]*100)+'%)':LV[x.l])+'</b>'+(x.n?'<br><small>'+E(x.n)+'</small>':'')+'</div><div>'+bd(l)+' <button onclick="rm('+x.i+')">&times;</button></div></div>'}).join('')||'<p class="mu">No results yet.</p>')+'</div></div>';
+}
+function render(){$('#app').innerHTML=(pid?player():home())+(pid&&tid?sheet():'')}
+function addP(){var n=$('#nm').value.trim();if(!n)return;S.players.push({id:'p'+Date.now(),name:n,r:[]});save();render()}
+function openP(id){pid=id;delArm=false;render();window.scrollTo(0,0)}
+function back(){pid=null;tid=null;render()}
+function openT(id){tid=id;render()}
+function closeT(){tid=null;render()}
+function pv(m){var v=parseFloat($('#sc').value),e=$('#pv');if(isNaN(v)||v<0||v>m){e.innerHTML='';return}e.innerHTML=Math.round(v/m*100)+'% = '+bd(lvl(v,m))+' '+LV[lvl(v,m)]}
+function sv(){
+ var p=P(),t=TT(tid),o={t:tid,d:$('#dt').value||today(),n:$('#nt').value.trim(),i:Date.now()};
+ if(t[5]){var r=document.querySelector('input[name=lv]:checked');if(!r)return;o.l=+r.value}
+ else{var v=parseFloat($('#sc').value);if(isNaN(v)||v<0||v>t[3]){$('#pv').textContent='Enter a score from 0 to '+t[3];return}o.s=v}
+ p.r.push(o);save();render();
+}
+function rm(i){var p=P();p.r=p.r.filter(function(x){return x.i!=i});save();render()}
+function dp(){if(!delArm){delArm=true;render();return}S.players=S.players.filter(function(p){return p.id!=pid});save();pid=null;tid=null;delArm=false;render()}
+function showBk(){var b=$('#bk');b.value=JSON.stringify(S);b.focus();b.select()}
+function restore(){try{var d=JSON.parse($('#bk').value);if(!d.players)throw 0;S=d;save();render()}catch(e){$('#bkm').textContent='That text could not be read. Paste the full backup and try again.'}}
+render();
+</script></body></html>
